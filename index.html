@@ -411,7 +411,7 @@
 </head>
 <body>
 
-<div class="toast" id="successToast">保存成功，可前往历史记录查看</div>
+<div class="toast" id="successToast">复制成功</div>
 
 <div id="calcPage" class="page active">
     <div class="header">
@@ -486,7 +486,6 @@
                 <div class="alg-title">一、分段折算法（推荐）</div>
                 <div class="alg-desc">按自然月拆分时段数据，结合区间占比折算月度整体收益</div>
                 
-                <!-- 日期提示行 -->
                 <p id="segDateTip" style="font-size:12px;color:#64748b;margin-bottom:8px">
                     本月自然天数 <span id="monthNaturalDays">30</span> 天：
                     实验时段 <span id="expSegDate"></span>，剩余时段 <span id="leftSegDate"></span>
@@ -502,7 +501,6 @@
                     </div>
                 </div>
 
-                <!-- 剩余时段输入行 -->
                 <div class="line-input-row" id="leftSegInputRow">
                     <label id="segLeftLabel">剩余时段大盘GMV</label>
                     <input type="number" class="gmv-input" id="segLeftGmv" oninput="calcUnitTip(this,'segTip2')">
@@ -561,9 +559,8 @@
     <div class="header">
         <button class="btn btn-outline" id="backBtn">← 返回计算器</button>
         <h3>历史记录</h3>
-        <div></div>
     </div>
-    <div id="historyList">
+    <div id="historyList" class="container">
         <div class="empty">暂无历史记录</div>
     </div>
 </div>
@@ -572,7 +569,7 @@
     <div class="popup-content">
         <button class="close" id="closePopup">×</button>
         <h3>查看/编辑记录</h3>
-        <div id="previewContent" style="margin:20px 0; padding:16px; border:1px dashed #cbd5e1; max-height: 400px; overflow-y:auto; border-radius:8px;"></div>
+        <div id="previewContent" style="margin:20px 0; padding:16px; border:1px dashed #cbd5e1; max-height:400px; overflow-y:auto;"></div>
         <button class="btn btn-primary" id="updateBtn">更新并保存</button>
     </div>
 </div>
@@ -591,12 +588,15 @@ let calcMode = "gmv";
 const toggleIds = ["dailyFormula","periodFormula","segIncFormula","segRatioFormula","singleIncFormula","singleRatioFormula"];
 const toggleTxtIds = ["dailyToggleTxt","periodToggleTxt","segIncToggleTxt","segRatioToggleTxt","singleIncToggleTxt","singleRatioToggleTxt"];
 
+let tempHistory = []; 
+function getHistory(){ return tempHistory; }
+function setHistory(list){ tempHistory = list; }
+
 function formatMD(date) {
     if (!date) return "";
     return (date.getMonth() + 1) + "." + date.getDate();
 }
 
-// ===================== 核心修复：只往前补 + 整月隐藏 =====================
 function updateSegInfo() {
     const sDate = document.getElementById("startDate").value;
     const eDate = document.getElementById("endDate").value;
@@ -611,8 +611,6 @@ function updateSegInfo() {
     const monthFirst = new Date(year, month, 1);
     const monthLast = new Date(year, month + 1, 0);
     const monthDays = monthLast.getDate();
-
-    // 判断是否整月
     const isFullMonth = (expStart <= monthFirst && expEnd >= monthLast);
 
     const tipLine = document.getElementById("segDateTip");
@@ -624,14 +622,10 @@ function updateSegInfo() {
         return;
     }
 
-    // 显示
     tipLine.classList.remove("hidden");
     leftRow.classList.remove("hidden");
-
-    // 实验时段
     document.getElementById("expSegDate").innerText = formatMD(expStart) + "-" + formatMD(expEnd);
 
-    // ===================== 永远只往前补 =====================
     let leftEnd = new Date(expStart);
     leftEnd.setDate(leftEnd.getDate() - 1);
     let leftStart = new Date(leftEnd);
@@ -645,6 +639,7 @@ function switchMode(mode){
     calcMode = mode;
     document.getElementById("btnGmv").classList.toggle("active",mode==="gmv");
     document.getElementById("btnUv").classList.toggle("active",mode==="uv");
+    
     if(mode==="gmv"){
         document.getElementById("col1Text").innerText="户均GMV";
         document.getElementById("expAvg").placeholder="实验组户均GMV";
@@ -656,9 +651,9 @@ function switchMode(mode){
         document.getElementById("segLeftLabel").innerText="剩余时段大盘GMV";
         document.getElementById("singleGmvLabel").innerText="实验区间大盘日均GMV";
     }else{
-        document.getElementById("col1Text").innerText="总开通率";
-        document.getElementById("expAvg").placeholder="实验组总开通率";
-        document.getElementById("ctrlAvg").placeholder="对照组总开通率";
+        document.getElementById("col1Text").innerText="总开通率(%)";
+        document.getElementById("expAvg").placeholder="实验组总开通率(%)";
+        document.getElementById("ctrlAvg").placeholder="对照组总开通率(%)";
         document.getElementById("incTitle").innerText="授信增量：";
         document.getElementById("dailyTitle").innerText="日均授信UV增量";
         document.getElementById("periodTitle").innerText="周期授信UV增量";
@@ -694,9 +689,14 @@ function toggleFormula(id){
     const txtDom = document.getElementById(toggleTxtIds[idx]);
     txtDom.innerText = panel.classList.contains("show")?"收起":"展开";
 }
+
 function copySingleVal(id){
     const val = document.getElementById(id).innerText;
-    navigator.clipboard.writeText(val).then(()=>alert('已复制'));
+    navigator.clipboard.writeText(val).then(() => {
+        const toast = document.getElementById('successToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+    });
 }
 
 const startDate = document.getElementById('startDate');
@@ -768,10 +768,10 @@ function calc(){
         dayProfit=fullUser*inc;
         allPeriodProfit=dayProfit*days;
     }else{
-        let expUv=eAvg*eUser;
-        let ctrlUv=cAvg*cUser;
+        let expUv=(eAvg/100)*eUser;
+        let ctrlUv=(cAvg/100)*cUser;
         inc=expUv-ctrlUv;
-        rate=(eAvg-cAvg)*100;
+        rate=eAvg-cAvg;
         dayProfit=inc;
         allPeriodProfit=inc*days;
     }
@@ -783,7 +783,17 @@ function calc(){
     dailyProfit.innerText=formatNumInt(dayProfit);
     periodProfit.innerText=formatNumInt(allPeriodProfit);
 
-    const benefitRate=calcMode==="gmv"?(cAvg>0?(eAvg-cAvg)/cAvg:0):(eAvg-cAvg);
+    document.getElementById('dailyFormula').innerText = 
+        calcMode === 'gmv' 
+        ? `日均推全收益 = 日均全量用户 × 户均GMV增量\n(${formatNumInt(fullUser)} × ${formatNumInt(inc)}) = ${formatNumInt(dayProfit)}`
+        : `日均授信UV增量 = 实验组UV - 对照组UV\n(${formatNumInt((eAvg/100)*eUser)} - ${formatNumInt((cAvg/100)*cUser)}) = ${formatNumInt(dayProfit)}`;
+
+    document.getElementById('periodFormula').innerText = 
+        calcMode === 'gmv'
+        ? `周期收益 = 日均收益 × 实验天数\n(${formatNumInt(dayProfit)} × ${days}) = ${formatNumInt(allPeriodProfit)}`
+        : `周期UV增量 = 日均增量 × 实验天数\n(${formatNumInt(dayProfit)} × ${days}) = ${formatNumInt(allPeriodProfit)}`;
+
+    const benefitRate=calcMode==="gmv"?(cAvg>0?(eAvg-cAvg)/cAvg:0):((eAvg-cAvg)/100);
     let segE=+segExpGmv.value||0;
     let segL=+segLeftGmv.value||0;
     let expPeriodLift=eUser*inc*days;
@@ -795,6 +805,14 @@ function calc(){
     segMonthInc.innerText=formatNumInt(segTotalInc);
     segRatio.innerText=formatNumFloat(segTotalGmv===0?0:(segTotalInc/segTotalGmv*100))+'%';
 
+    document.getElementById('segIncFormula').innerText = 
+        `月度折算增量 = (实验时段GMV × 提升率) + (剩余时段GMV × 提升率)\n`+
+        `(${formatNumInt(segE)} × ${formatNumFloat(benefitRate)}) + (${formatNumInt(segL)} × ${formatNumFloat(benefitRate)}) = ${formatNumInt(segTotalInc)}`;
+
+    document.getElementById('segRatioFormula').innerText = 
+        `增量折大盘比例 = 月度折算增量 ÷ 总大盘GMV × 100%\n`+
+        `${formatNumInt(segTotalInc)} ÷ ${formatNumInt(segTotalGmv)} × 100% = ${formatNumFloat(segTotalGmv===0?0:(segTotalInc/segTotalGmv*100))}%`;
+
     let avgGmv=+singleAvgGmv.value||0;
     let mDays=+monthDays.value||0;
     if(chkSingle.checked&&days>0) avgGmv=avgGmv-(eUser*inc)/days;
@@ -802,6 +820,14 @@ function calc(){
     let singleTotalInc=singleTotalGmv*benefitRate;
     singleMonthInc.innerText=formatNumInt(singleTotalInc);
     singleRatio.innerText=formatNumFloat(singleTotalGmv===0?0:(singleTotalInc/singleTotalGmv*100))+'%';
+
+    document.getElementById('singleIncFormula').innerText = 
+        `月度折算增量 = 日均GMV × 月天数 × 提升率\n`+
+        `${formatNumInt(avgGmv)} × ${mDays} × ${formatNumFloat(benefitRate)} = ${formatNumInt(singleTotalInc)}`;
+
+    document.getElementById('singleRatioFormula').innerText = 
+        `增量折大盘比例 = 月度折算增量 ÷ (日均GMV × 月天数) × 100%\n`+
+        `${formatNumInt(singleTotalInc)} ÷ ${formatNumInt(singleTotalGmv)} × 100% = ${formatNumFloat(singleTotalGmv===0?0:(singleTotalInc/singleTotalGmv*100))}%`;
 }
 
 function reset(){
@@ -816,7 +842,6 @@ function reset(){
     switchMode(calcMode);
 }
 
-const STORAGE_KEY = 'ab_calc_history';
 let currentEditId = null;
 const calcPage = document.getElementById('calcPage');
 const historyPage = document.getElementById('historyPage');
@@ -833,19 +858,8 @@ backBtn.onclick = () => {
     historyPage.classList.remove('active');
     calcPage.classList.add('active');
 };
-function showSuccessToast() {
-    successToast.classList.add('show');
-    setTimeout(()=>successToast.classList.remove('show'),2000);
-}
-function getHistory(){
-    return JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
-}
-function setHistory(list){
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(list));
-}
-function timeStr(iso){
-    return new Date(iso).toLocaleString();
-}
+
+function timeStr(iso){ return new Date(iso).toLocaleString(); }
 
 function exportCalcData(){
     return {
@@ -891,10 +905,7 @@ function importCalcData(data){
 function renderHistory(){
     const list=getHistory().sort((a,b)=>new Date(b.updateTime)-new Date(a.updateTime));
     const container=document.getElementById('historyList');
-    if(list.length===0){
-        container.innerHTML='<div class="empty">暂无历史记录</div>';
-        return;
-    }
+    if(list.length===0){ container.innerHTML='<div class="empty">暂无历史记录</div>'; return; }
     container.innerHTML=list.map(item=>`
         <div class="history-item" data-id="${item.id}">
             <div class="name">${item.name}</div>
@@ -919,51 +930,36 @@ const cancelSave=document.getElementById('cancelSave');
 
 saveBtn.onclick=()=>{
     const nowStr = new Date().toLocaleString();
-    let defaultName = calcMode === "gmv" 
-        ? `GMV计算实验_${nowStr}` 
-        : `授信UV计算_${nowStr}`;
+    let defaultName = calcMode === "gmv" ? `GMV计算实验_${nowStr}` : `授信UV计算_${nowStr}`;
     recordName.value = defaultName;
     nameModal.classList.add('show');
     currentEditId=null;
 };
-cancelSave.onclick=()=>{
-    nameModal.classList.remove('show');
-};
+cancelSave.onclick=()=>{ nameModal.classList.remove('show'); };
 confirmSave.onclick=()=>{
     const name=recordName.value.trim();
     const now=new Date().toISOString();
     const list=getHistory();
-    list.push({
-        id:Date.now().toString(),
-        name:name,
-        createTime:now,
-        updateTime:now,
-        content:exportCalcData()
-    });
+    list.push({ id:Date.now().toString(), name:name, createTime:now, updateTime:now, content:exportCalcData() });
     setHistory(list);
     nameModal.classList.remove('show');
-    showSuccessToast();
+    successToast.innerText = "保存成功";
+    successToast.classList.add('show');
+    setTimeout(()=>successToast.classList.remove('show'),1500);
 };
 
-document.getElementById('closePopup').onclick=()=>{
-    document.getElementById('editPopup').classList.remove('show');
-};
+document.getElementById('closePopup').onclick=()=>{ document.getElementById('editPopup').classList.remove('show'); };
 document.getElementById('updateBtn').onclick=()=>{
     const list=getHistory();
     const item=list.find(i=>i.id===currentEditId);
-    if(item){
-        item.content=exportCalcData();
-        item.updateTime=new Date().toISOString();
-        setHistory(list);
-    }
+    if(item){ item.content=exportCalcData(); item.updateTime=new Date().toISOString(); setHistory(list); }
     document.getElementById('editPopup').classList.remove('show');
     renderHistory();
 };
 
 startDate.addEventListener('change', calcDays);
 endDate.addEventListener('change', calcDays);
-[expAvg,ctrlAvg,expUser,ctrlUser,expFlow,ctrlFlow,
- segExpGmv,segLeftGmv,singleAvgGmv,monthDays,chkSeg,chkSingle]
+[expAvg,ctrlAvg,expUser,ctrlUser,expFlow,ctrlFlow,segExpGmv,segLeftGmv,singleAvgGmv,monthDays,chkSeg,chkSingle]
 .forEach(i=>i.addEventListener('input', calc));
 
 initDate();
