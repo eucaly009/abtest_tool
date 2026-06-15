@@ -607,9 +607,16 @@ let calcMode = "gmv";
 const toggleIds = ["dailyFormula","periodFormula","segIncFormula","segRatioFormula","singleIncFormula","singleRatioFormula"];
 const toggleTxtIds = ["dailyToggleTxt","periodToggleTxt","segIncToggleTxt","segRatioToggleTxt","singleIncToggleTxt","singleRatioToggleTxt"];
 
-let tempHistory = []; 
+let tempHistory = [];
+try {
+    var saved = localStorage.getItem('ab_calc_history');
+    if(saved) tempHistory = JSON.parse(saved);
+} catch(e) {}
 function getHistory(){ return tempHistory; }
-function setHistory(list){ tempHistory = list; }
+function setHistory(list){
+    tempHistory = list;
+    try { localStorage.setItem('ab_calc_history', JSON.stringify(list)); } catch(e) {}
+}
 
 function formatMD(date) {
     if (!date) return "";
@@ -988,11 +995,16 @@ function renderHistory(){
         </div>
     `).join('');
     document.querySelectorAll('.history-item').forEach(el=>{
-        el.onclick=()=>{
-            currentEditId=el.dataset.id;
-            const item=getHistory().find(i=>i.id===currentEditId);
-            document.getElementById('previewContent').innerText=JSON.stringify(item.content,null,2);
-            document.getElementById('editPopup').classList.add('show');
+        el.onclick=function(){
+            var id = el.getAttribute('data-id');
+            var item = getHistory().find(function(i){ return i.id === id; });
+            if(!item) return;
+            historyPage.classList.remove('active');
+            calcPage.classList.add('active');
+            importCalcData(item.content);
+            successToast.innerText = '已加载历史记录';
+            successToast.classList.add('show');
+            setTimeout(function(){successToast.classList.remove('show');},1500);
         };
     });
 }
